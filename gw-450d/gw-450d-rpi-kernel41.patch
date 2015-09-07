@@ -1,0 +1,112 @@
+--- common/rtusb_dev_id.c.orig	2015-09-02 00:21:10.195591219 +0900
++++ common/rtusb_dev_id.c	2015-09-01 14:00:14.849879629 +0900
+@@ -36,6 +36,7 @@
+ /* module table */
+ USB_DEVICE_ID rtusb_dev_id[] = {
+ #ifdef MT76x0
++        {USB_DEVICE(0x2019,0xab31)}, /* GW-450D */
+ 	{USB_DEVICE(0x148F,0x7610)}, /* MT7610U */
+ 	{USB_DEVICE(0x0E8D,0x7610)}, /* MT7610U */
+ 	{USB_DEVICE_AND_INTERFACE_INFO(0x0E8D, 0x7630, 0xff, 0x2, 0xff)}, /* MT7630U */
+--- include/os/rt_linux.h.orig	2015-09-01 13:24:14.899912688 +0900
++++ include/os/rt_linux.h	2015-09-01 13:24:36.519898368 +0900
+@@ -277,8 +277,8 @@
+ 
+ typedef struct _OS_FS_INFO_
+ {
+-	int				fsuid;
+-	int				fsgid;
++	kuid_t				fsuid;
++	kgid_t				fsgid;
+ 	mm_segment_t	fs;
+ } OS_FS_INFO;
+ 
+--- os/linux/config.mk.orig	2015-09-02 00:22:09.015621182 +0900
++++ os/linux/config.mk	2015-09-01 12:32:27.421237676 +0900
+@@ -23,12 +23,12 @@
+ 
+ # Support Wpa_Supplicant
+ # i.e. wpa_supplicant -Dralink
+-HAS_WPA_SUPPLICANT=n
++HAS_WPA_SUPPLICANT=y
+ 
+ 
+ # Support Native WpaSupplicant for Network Maganger
+ # i.e. wpa_supplicant -Dwext
+-HAS_NATIVE_WPA_SUPPLICANT_SUPPORT=n
++HAS_NATIVE_WPA_SUPPLICANT_SUPPORT=y
+ 
+ #Support Net interface block while Tx-Sw queue full
+ HAS_BLOCK_NET_IF=n
+--- os/linux/rt_linux.c.orig	2015-09-02 00:22:26.185638389 +0900
++++ os/linux/rt_linux.c	2015-09-01 23:50:52.563797990 +0900
+@@ -1082,9 +1082,8 @@
+ 
+ int RtmpOSFileRead(RTMP_OS_FD osfd, char *pDataPtr, int readLen)
+ {
+-	/* The object must have a read method */
+-	if (osfd->f_op && osfd->f_op->read) {
+-		return osfd->f_op->read(osfd, pDataPtr, readLen, &osfd->f_pos);
++	if (osfd->f_op) {
++		return __vfs_read(osfd, pDataPtr, readLen, &osfd->f_pos);
+ 	} else {
+ 		DBGPRINT(RT_DEBUG_ERROR, ("no file read method\n"));
+ 		return -1;
+@@ -1093,7 +1092,7 @@
+ 
+ int RtmpOSFileWrite(RTMP_OS_FD osfd, char *pDataPtr, int writeLen)
+ {
+-	return osfd->f_op->write(osfd, pDataPtr, (size_t) writeLen, &osfd->f_pos);
++	return __vfs_write(osfd, pDataPtr, (size_t) writeLen, &osfd->f_pos);
+ }
+ 
+ static inline void __RtmpOSFSInfoChange(OS_FS_INFO * pOSFSInfo, BOOLEAN bSet)
+@@ -1930,7 +1929,7 @@
+ 			 ("-->2) %s: Error %ld opening %s\n", __FUNCTION__,
+ 			  -PTR_ERR(file_w), fileName));
+ 	} else {
+-		if (file_w->f_op && file_w->f_op->write) {
++		if (file_w->f_op) {
+ 			file_w->f_pos = 0;
+ 			macAddr = AddrStart;
+ 
+@@ -1940,7 +1939,7 @@
+ 				sprintf(msg, "0x%04X = 0x%08X\n", macAddr, macValue);
+ 
+ 				/* write data to file */
+-				file_w->f_op->write(file_w, msg, strlen(msg), &file_w->f_pos);
++				__vfs_write(file_w, msg, strlen(msg), &file_w->f_pos);
+ 
+ 				printk("%s", msg);
+ 				macAddr += AddrStep;
+@@ -1981,7 +1980,7 @@
+ 			 ("-->2) %s: Error %ld opening %s\n", __FUNCTION__,
+ 			  -PTR_ERR(file_w), fileName));
+ 	} else {
+-		if (file_w->f_op && file_w->f_op->write) {
++		if (file_w->f_op) {
+ 			file_w->f_pos = 0;
+ 			eepAddr = 0x00;
+ 
+@@ -1990,7 +1989,7 @@
+ 				sprintf(msg, "%08x = %04x\n", eepAddr, eepValue);
+ 
+ 				/* write data to file */
+-				file_w->f_op->write(file_w, msg, strlen(msg), &file_w->f_pos);
++				__vfs_write(file_w, msg, strlen(msg), &file_w->f_pos);
+ 
+ 				printk("%s", msg);
+ 				eepAddr += AddrStep;
+@@ -2026,10 +2025,10 @@
+ 			 ("-->2) %s: Error %ld opening %s\n", __FUNCTION__,
+ 			  -PTR_ERR(file_w), fileName));
+ 	} else {
+-		if (file_w->f_op && file_w->f_op->write) {
++		if (file_w->f_op) {
+ 			file_w->f_pos = 0;
+ 			/* write data to file */
+-			file_w->f_op->write(file_w, pBuf, BufLen, &file_w->f_pos);
++			__vfs_write(file_w, pBuf, BufLen, &file_w->f_pos);
+ 		}
+ 		filp_close(file_w, NULL);
+ 	}
