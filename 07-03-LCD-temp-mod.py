@@ -109,7 +109,7 @@ try:
             s = str(inputValue)
             write_string(s)
         except IOError:
-            pass
+            print("接続エラースキップ")
         sleep(1)
 
 except KeyboardInterrupt:
