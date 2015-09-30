@@ -1,0 +1,12 @@
+[Unit]
+Description=WebIOPI
+After=syslog.target
+
+[Service]
+Type=simple
+WorkingDirectory=/usr/share/webiopi/htdocs
+ExecStart=/usr/bin/python3 -m webiopi -l /var/log/webiopi -c /etc/webiopi/config
+
+[Install]
+WantedBy = multi-user.target
+
