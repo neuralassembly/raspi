@@ -6,6 +6,7 @@ After=syslog.target
 Type=simple
 WorkingDirectory=/usr/share/webiopi/htdocs
 ExecStart=/usr/bin/python3 -m webiopi -l /var/log/webiopi -c /etc/webiopi/config
+TimeoutStopSec=5
 
 [Install]
 WantedBy = multi-user.target
