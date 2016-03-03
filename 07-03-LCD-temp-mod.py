@@ -94,7 +94,7 @@ address_aqm0802a = 0x3e
 register_setting = 0x00
 register_display = 0x40
 
-contrast = 32  # 0から63のコントラスト。通常は32、文字が薄いときは48を推奨
+contrast = 32  # 0から63のコントラスト。通常は32、文字が薄いときは40を推奨
 chars_per_line = 8  # LCDの横方向の文字数
 display_lines = 2   # LCDの行数
 
