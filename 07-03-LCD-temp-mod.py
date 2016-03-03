@@ -36,7 +36,9 @@ def setup_aqm0802a():
     trials = 5
     for i in range(trials):
         try:
-            bus.write_i2c_block_data(address_aqm0802a, register_setting, [0x38, 0x39, 0x14, 0x70, 0x56, 0x6c])
+            c_lower = (contrast & 0xf)
+            c_upper = (contrast & 0x30)>>4
+            bus.write_i2c_block_data(address_aqm0802a, register_setting, [0x38, 0x39, 0x14, 0x70|c_lower, 0x54|c_upper, 0x6c])
             sleep(0.2)
             bus.write_i2c_block_data(address_aqm0802a, register_setting, [0x38, 0x0d, 0x01])
             sleep(0.001)
@@ -76,10 +78,10 @@ def write_char(c):
     elif position == chars_per_line*(line+1):
         newline()
     bus.write_byte_data(address_aqm0802a, register_display, byte_data)
-    position += 1 
-   
+    position += 1
+
 def check_writable(c):
-    if c >= 0x20 and c <= 0x7d :
+    if c >= 0x06 and c <= 0xff :
         return c
     else:
         return 0x20 # 空白文字
@@ -92,8 +94,10 @@ address_aqm0802a = 0x3e
 register_setting = 0x00
 register_display = 0x40
 
-chars_per_line = 8
-display_lines = 2
+contrast = 32  # 0から63のコントラスト。通常は32、文字が薄いときは48を推奨
+chars_per_line = 8  # LCDの横方向の文字数
+display_lines = 2   # LCDの行数
+
 display_chars = chars_per_line*display_lines
 
 position = 0
