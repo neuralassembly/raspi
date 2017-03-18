@@ -103,7 +103,7 @@ def getLCDMinMax(temp):
 def getLCDWeather(weather):
     if weather.find(u('のち')) != -1:
         datas = weather.split(u('のち')) 
-        return replaceWeather(datas[0])+chr(0x07)+replaceWeather(datas[1]) # →
+        return replaceWeather(datas[0])+chr(0x3e)+replaceWeather(datas[1]) # >
     elif weather.find(u('時々')) != -1:
         datas = weather.split(u('時々'))
         return replaceWeather(datas[0])+'/'+replaceWeather(datas[1])
