@@ -1,0 +1,62 @@
+--- WiringPi-Python-orig/WiringPi/wiringPi/wiringPi.c	2017-03-29 18:35:21.466874668 +0900
++++ WiringPi-Python/WiringPi/wiringPi/wiringPi.c	2017-03-29 18:35:02.186844328 +0900
+@@ -1106,6 +1106,9 @@
+ 
+ void pwmSetMode (int mode)
+ {
++  if (geteuid () != 0)
++    (void)wiringPiFailure (WPI_FATAL, "wiringPiSetup: Must be root. (Did you forget sudo?)\n") ;
++
+   if ((wiringPiMode == WPI_MODE_PINS) || (wiringPiMode == WPI_MODE_PHYS) || (wiringPiMode == WPI_MODE_GPIO))
+   {
+     if (mode == PWM_MODE_MS)
+@@ -1125,6 +1128,9 @@
+ 
+ void pwmSetRange (unsigned int range)
+ {
++  if (geteuid () != 0)
++    (void)wiringPiFailure (WPI_FATAL, "wiringPiSetup: Must be root. (Did you forget sudo?)\n") ;
++
+   if ((wiringPiMode == WPI_MODE_PINS) || (wiringPiMode == WPI_MODE_PHYS) || (wiringPiMode == WPI_MODE_GPIO))
+   {
+     *(pwm + PWM0_RANGE) = range ; delayMicroseconds (10) ;
+@@ -1143,6 +1149,9 @@
+ 
+ void pwmSetClock (int divisor)
+ {
++  if (geteuid () != 0)
++    (void)wiringPiFailure (WPI_FATAL, "wiringPiSetup: Must be root. (Did you forget sudo?)\n") ;
++
+   uint32_t pwm_control ;
+   divisor &= 4095 ;
+ 
+@@ -1384,6 +1393,9 @@
+       if ((alt = gpioToPwmALT [pin]) == 0)	// Not a hardware capable PWM pin
+ 	return ;
+ 
++      if (geteuid () != 0)
++        (void)wiringPiFailure (WPI_FATAL, "wiringPiSetup: Must be root. (Did you forget sudo?)\n") ;
++
+ // Set pin to PWM mode
+ 
+       *(gpio + fSel) = (*(gpio + fSel) & ~(7 << shift)) | (alt << shift) ;
+@@ -1586,6 +1598,9 @@
+ 
+ void pwmWrite (int pin, int value)
+ {
++  if (geteuid () != 0)
++    (void)wiringPiFailure (WPI_FATAL, "wiringPiSetup: Must be root. (Did you forget sudo?)\n") ;
++
+   struct wiringPiNodeStruct *node = wiringPiNodes ;
+ 
+   if ((pin & PI_GPIO_MASK) == 0)		// On-Board Pin
+@@ -1654,6 +1669,9 @@
+ 
+ void pwmToneWrite (int pin, int freq)
+ {
++  if (geteuid () != 0)
++    (void)wiringPiFailure (WPI_FATAL, "wiringPiSetup: Must be root. (Did you forget sudo?)\n") ;
++
+   int range ;
+ 
+   if (freq == 0)
