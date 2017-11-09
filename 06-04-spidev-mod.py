@@ -16,6 +16,7 @@ def readadc_spidev(adcnum):
 GPIO.setmode(GPIO.BCM)
 spi=spidev.SpiDev()
 spi.open(0, 0) # bus0, CE0
+spi.max_speed_hz = 1000000 # 1MHz
 
 try:
     while True:
