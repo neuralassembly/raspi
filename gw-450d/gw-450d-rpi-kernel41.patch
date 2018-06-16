@@ -133,3 +133,14 @@
  #endif /* CONFIG_STA_SUPPORT */
  
      return TRUE;
+--- os/linux/config.mk.orig	2018-06-15 23:04:11.901775440 +0900
++++ os/linux/config.mk	2018-06-15 23:07:36.373439974 +0900
+@@ -212,7 +212,7 @@
+ CC := $(CROSS_COMPILE)gcc
+ LD := $(CROSS_COMPILE)ld
+ 
+-WFLAGS := -g -DAGGREGATION_SUPPORT -DPIGGYBACK_SUPPORT -DWMM_SUPPORT  -DLINUX -Wall -Wstrict-prototypes -Wno-trigraphs
++WFLAGS := -g -DAGGREGATION_SUPPORT -DPIGGYBACK_SUPPORT -DWMM_SUPPORT  -DLINUX -Wall -Wstrict-prototypes -Wno-trigraphs -Wno-error=incompatible-pointer-types
+ WFLAGS += -DSYSTEM_LOG_SUPPORT -DRT28xx_MODE=$(RT28xx_MODE) -DCHIPSET=$(MODULE) -DRESOURCE_PRE_ALLOC -DENHANCED_STAT_DISPLAY
+ #WFLAGS += -DFPGA_MODE
+ WFLAGS += -I$(RT28xx_DIR)/include
