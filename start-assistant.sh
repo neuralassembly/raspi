@@ -7,5 +7,5 @@ source /home/pi/env/bin/activate
 #export https_proxy=http://(proxy server):(port)/
 #export ftp_proxy=http://(proxy server):(port)/
 
-python /home/pi/controlTV-ga.py --project_id gatest --device_model_id (id of your model)
+python /home/pi/controlTV-ga.py --project_id gatest-xxxxx  --device_model_id  gatest-xxxxx-assistant-sdk-light-xxxxxx
 
