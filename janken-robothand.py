@@ -23,6 +23,9 @@ import smbus
 import math
 import sys
 
+version = cv2.__version__.split(".")
+CVversion = int(version[0])
+
 def resetPCA9685():
     bus.write_byte_data(address_pca9685, 0x00, 0x00)
 
@@ -176,12 +179,12 @@ def getImageVector(img):
         htmp = int(sw*hh/ww)
         if htmp>0:
             img_small_tmp = cv2.resize(img_nonzero, (sw, htmp), interpolation=cv2.INTER_LINEAR)
-            img_small[(sh-htmp)/2:(sh-htmp)/2+htmp, 0:sw] = img_small_tmp
+            img_small[int((sh-htmp)/2):int((sh-htmp)/2)+htmp, 0:sw] = img_small_tmp
     elif 4*hh >= ww*3 and ww > 0:
         wtmp = int(sh*ww/hh)
         if wtmp>0:
             img_small_tmp = cv2.resize(img_nonzero, (wtmp, sh), interpolation=cv2.INTER_LINEAR)
-            img_small[0:sh, (sw-wtmp)/2:(sw-wtmp)/2+wtmp] = img_small_tmp
+            img_small[0:sh, int((sw-wtmp)/2):int((sw-wtmp)/2)+wtmp] = img_small_tmp
     # 0...1の範囲にスケーリングしてからリターンする
     return np.array([img_small.ravel()/255.])
 
@@ -223,7 +226,10 @@ def imageProcessing():
 
                 # 以下、最も広い白領域のみを残すための計算
                 # まず、白領域の塊（クラスター）にラベルを振る
-                img_dist, img_label = cv2.distanceTransformWithLabels(255-hs_and, cv2.cv.CV_DIST_L2, 5)
+                if CVversion == 2:
+                    img_dist, img_label = cv2.distanceTransformWithLabels(255-hs_and, cv2.cv.CV_DIST_L2, 5)
+                else:
+                    img_dist, img_label = cv2.distanceTransformWithLabels(255-hs_and, cv2.DIST_L2, 5)
                 img_label = np.uint8(img_label) & hs_and
                 # ラベル0は黒領域なので除外
                 img_label_not_zero = img_label[img_label != 0]
