@@ -3,10 +3,18 @@ import sys
 
 if len(sys.argv)>1:
     f = open(sys.argv[1], 'r')
-    line = f.readline()  # Discard the first line
+    leading_space = True
     for line in f:
          data = line.split(' ')
-         print(data[1].strip(), end=' ')
+         if leading_space:
+             if 'space' in data[0]:
+                 continue
+             elif 'pulse' in data[0]:
+                 leading_space = False
+         if  'space' in data[0] or 'pulse' in data[0]:
+             print(data[1].strip(), end=' ')
+         elif 'timeout' in data[0]:
+             break
     f.close()
     print()
 else:
