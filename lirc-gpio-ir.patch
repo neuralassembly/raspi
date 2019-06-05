@@ -161,3 +161,14 @@ diff -ruN lirc-0.9.4c.orig/tools/mode2.cpp lirc-0.9.4c/tools/mode2.cpp
  		break;
  	case 1: {
  		/* print output like irrecord raw config file data */
+--- lirc-0.9.4c.orig/lib/config_file.c	2016-06-29 19:26:59.000000000 +0900
++++ lirc-0.9.4c/lib/config_file.c	2019-06-05 22:59:36.978089163 +0900
+@@ -70,7 +70,7 @@
+ typedef void* (*array_guest_func)(void* item, void* arg);
+ 
+ 
+-#define LINE_LEN 1024
++#define LINE_LEN 2048
+ #define MAX_INCLUDES 10
+ 
+ const char* whitespace = " \t";
