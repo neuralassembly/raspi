@@ -168,7 +168,7 @@ diff -ruN lirc-0.9.4c.orig/tools/mode2.cpp lirc-0.9.4c/tools/mode2.cpp
  
  
 -#define LINE_LEN 1024
-+#define LINE_LEN 2048
++#define LINE_LEN 4096
  #define MAX_INCLUDES 10
  
  const char* whitespace = " \t";
