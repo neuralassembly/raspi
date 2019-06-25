@@ -146,10 +146,10 @@ diff -ruN lirc-0.9.4c.orig/tools/mode2.cpp lirc-0.9.4c/tools/mode2.cpp
 -			       data & PULSE_BIT) ? "pulse" : "space",
 -		       (__u32)(data & PULSE_MASK));
 +		if (leading_space && msg == LIRC_MODE2_SPACE ) {
-+                        break;
-+                } else {
-+                        leading_space = false;
-+                }
++			break;
++		} else {
++			leading_space = false;
++		}
 +		if (msg == LIRC_MODE2_PULSE) {
 +			printf("pulse %u\n", (__u32)(data & PULSE_MASK));
 +		} else if (msg == LIRC_MODE2_SPACE) {
