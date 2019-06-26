@@ -10,8 +10,8 @@
  	{USB_DEVICE(0x148F,0x7610)}, /* MT7610U */
  	{USB_DEVICE(0x0E8D,0x7610)}, /* MT7610U */
  	{USB_DEVICE_AND_INTERFACE_INFO(0x0E8D, 0x7630, 0xff, 0x2, 0xff)}, /* MT7630U */
---- include/os/rt_linux.h.orig	2015-09-01 13:24:14.899912688 +0900
-+++ include/os/rt_linux.h	2015-09-01 13:24:36.519898368 +0900
+--- include/os/rt_linux.h.orig	2019-06-27 00:01:14.056680358 +0900
++++ include/os/rt_linux.h	2019-06-26 22:40:11.000000000 +0900
 @@ -277,8 +277,8 @@
  
  typedef struct _OS_FS_INFO_
@@ -22,6 +22,26 @@
 +	kgid_t				fsgid;
  	mm_segment_t	fs;
  } OS_FS_INFO;
+ 
+@@ -527,8 +527,19 @@
+  **********************************************************************************/
+ #define OS_HZ			HZ
+ 
++#if defined (LINUX_VERSION_CODE) && (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 15, 0))
++typedef struct legacy_timer_emu {
++	struct timer_list t;
++	void (*function)(unsigned long);
++	unsigned long data;
++} OS_NDIS_MINIPORT_TIMER;	
++typedef struct legacy_timer_emu		OS_TIMER;
++#else
+ typedef struct timer_list	OS_NDIS_MINIPORT_TIMER;
+ typedef struct timer_list	OS_TIMER;
++#endif
++
++
+ 
+ typedef void (*TIMER_FUNCTION)(unsigned long);
  
 --- os/linux/config.mk.orig	2015-09-02 00:22:09.015621182 +0900
 +++ os/linux/config.mk	2015-09-01 12:32:27.421237676 +0900
@@ -40,9 +60,106 @@
  
  #Support Net interface block while Tx-Sw queue full
  HAS_BLOCK_NET_IF=n
---- os/linux/rt_linux.c.orig	2015-09-02 00:22:26.185638389 +0900
-+++ os/linux/rt_linux.c	2015-09-01 23:50:52.563797990 +0900
-@@ -1082,9 +1082,8 @@
+--- os/linux/rt_linux.c.orig	2019-06-27 00:00:58.078769049 +0900
++++ os/linux/rt_linux.c	2019-06-26 23:50:53.000000000 +0900
+@@ -74,6 +74,15 @@
+ 
+ BOOLEAN RTMP_OS_Alloc_RscOnly(VOID *pRscSrc, UINT32 RscLen);
+ BOOLEAN RTMP_OS_Remove_Rsc(LIST_HEADER *pRscList, VOID *pRscSrc);
++
++#if defined (LINUX_VERSION_CODE) && (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 15, 0))
++static void legacy_timer_emu_func(struct timer_list *t)
++{
++        struct legacy_timer_emu *lt = from_timer(lt, t, t);
++        lt->function(lt->data);
++}
++#endif
++
+ /*
+ ========================================================================
+ Routine Description:
+@@ -102,8 +111,13 @@
+ 	IN unsigned long timeout)
+ {
+ 	timeout = ((timeout * OS_HZ) / 1000);
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 15, 0))
++	(&pTimer->t)->expires = jiffies + timeout;
++	add_timer(&pTimer->t);
++#else
+ 	pTimer->expires = jiffies + timeout;
+ 	add_timer(pTimer);
++#endif
+ }
+ 
+ /* convert NdisMInitializeTimer --> RTMP_OS_Init_Timer */
+@@ -113,10 +127,19 @@
+ 	IN TIMER_FUNCTION function,
+ 	IN PVOID data)
+ {
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 15, 0))
++	if (!timer_pending(&pTimer->t)) {
++		timer_setup(&pTimer->t, legacy_timer_emu_func, 0);
++#else
+ 	if (!timer_pending(pTimer)) {
+ 		init_timer(pTimer);
++#endif
+ 		pTimer->data = (unsigned long)data;
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 15, 0))
++		(&pTimer->t)->function = function;
++#else
+ 		pTimer->function = function;
++#endif
+ 	}
+ }
+ 
+@@ -124,12 +147,21 @@
+ 	IN OS_NDIS_MINIPORT_TIMER * pTimer,
+ 	IN unsigned long timeout)
+ {
++#if defined (LINUX_VERSION_CODE) && (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 15, 0))
++	if (timer_pending(&pTimer->t))
++#else
+ 	if (timer_pending(pTimer))
++#endif
+ 		return;
+ 
+ 	timeout = ((timeout * OS_HZ) / 1000);
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 15, 0))
++	(&pTimer->t)->expires = jiffies + timeout;
++	add_timer(&pTimer->t);
++#else
+ 	pTimer->expires = jiffies + timeout;
+ 	add_timer(pTimer);
++#endif
+ }
+ 
+ static inline VOID __RTMP_OS_Mod_Timer(
+@@ -137,15 +169,24 @@
+ 	IN unsigned long timeout)
+ {
+ 	timeout = ((timeout * OS_HZ) / 1000);
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 15, 0))
++	mod_timer(&pTimer->t, jiffies + timeout);
++#else
+ 	mod_timer(pTimer, jiffies + timeout);
++#endif
+ }
+ 
+ static inline VOID __RTMP_OS_Del_Timer(
+ 	IN OS_NDIS_MINIPORT_TIMER * pTimer,
+ 	OUT BOOLEAN *pCancelled)
+ {
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 15, 0))
++	if (timer_pending(&pTimer->t))
++		*pCancelled = del_timer_sync(&pTimer->t);
++#else
+ 	if (timer_pending(pTimer))
+ 		*pCancelled = del_timer_sync(pTimer);
++#endif
+ 	else
+ 		*pCancelled = TRUE;
+ }
+@@ -1082,9 +1123,8 @@
  
  int RtmpOSFileRead(RTMP_OS_FD osfd, char *pDataPtr, int readLen)
  {
@@ -54,7 +171,7 @@
  	} else {
  		DBGPRINT(RT_DEBUG_ERROR, ("no file read method\n"));
  		return -1;
-@@ -1093,7 +1092,7 @@
+@@ -1093,7 +1133,7 @@
  
  int RtmpOSFileWrite(RTMP_OS_FD osfd, char *pDataPtr, int writeLen)
  {
@@ -63,7 +180,7 @@
  }
  
  static inline void __RtmpOSFSInfoChange(OS_FS_INFO * pOSFSInfo, BOOLEAN bSet)
-@@ -1930,7 +1929,7 @@
+@@ -1930,7 +1970,7 @@
  			 ("-->2) %s: Error %ld opening %s\n", __FUNCTION__,
  			  -PTR_ERR(file_w), fileName));
  	} else {
@@ -72,7 +189,7 @@
  			file_w->f_pos = 0;
  			macAddr = AddrStart;
  
-@@ -1940,7 +1939,7 @@
+@@ -1940,7 +1980,7 @@
  				sprintf(msg, "0x%04X = 0x%08X\n", macAddr, macValue);
  
  				/* write data to file */
@@ -81,7 +198,7 @@
  
  				printk("%s", msg);
  				macAddr += AddrStep;
-@@ -1981,7 +1980,7 @@
+@@ -1981,7 +2021,7 @@
  			 ("-->2) %s: Error %ld opening %s\n", __FUNCTION__,
  			  -PTR_ERR(file_w), fileName));
  	} else {
@@ -90,7 +207,7 @@
  			file_w->f_pos = 0;
  			eepAddr = 0x00;
  
-@@ -1990,7 +1989,7 @@
+@@ -1990,7 +2030,7 @@
  				sprintf(msg, "%08x = %04x\n", eepAddr, eepValue);
  
  				/* write data to file */
@@ -99,7 +216,7 @@
  
  				printk("%s", msg);
  				eepAddr += AddrStep;
-@@ -2026,10 +2025,10 @@
+@@ -2026,10 +2066,10 @@
  			 ("-->2) %s: Error %ld opening %s\n", __FUNCTION__,
  			  -PTR_ERR(file_w), fileName));
  	} else {
@@ -112,6 +229,18 @@
  		}
  		filp_close(file_w, NULL);
  	}
+@@ -3721,7 +3761,11 @@
+ 	 pTimer = (OS_NDIS_MINIPORT_TIMER *) (pTimerOrg->pContent);
+ 
+ 	if (pTimer) {
++#if defined (LINUX_VERSION_CODE) && (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 15, 0))
++		if (timer_pending(&pTimer->t))
++#else
+ 		if (timer_pending(pTimer))
++#endif
+ 			return;
+ 
+ 		__RTMP_OS_Add_Timer(pTimer, timeout);
 --- sta/sta_cfg.c.orig	2015-10-16 10:51:29.744391038 +0900
 +++ sta/sta_cfg.c	2015-10-16 10:52:03.414417321 +0900
 @@ -5398,7 +5398,7 @@
