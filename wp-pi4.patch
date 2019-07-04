@@ -1,0 +1,87 @@
+diff -ruN WiringPi-Python.orig/WiringPi/wiringPi/wiringPi.c WiringPi-Python/WiringPi/wiringPi/wiringPi.c
+--- WiringPi-Python.orig/WiringPi/wiringPi/wiringPi.c	2019-07-04 12:21:59.385684131 +0900
++++ WiringPi-Python/WiringPi/wiringPi/wiringPi.c	2019-07-04 12:21:00.265505747 +0900
+@@ -215,6 +215,7 @@
+ 
+ #define	GPIO_PERI_BASE_OLD	0x20000000
+ #define	GPIO_PERI_BASE_NEW	0x3F000000
++#define	GPIO_PERI_BASE_NEW2	0xFE000000
+ 
+ static volatile unsigned int piGpioBase = 0 ;
+ 
+@@ -955,6 +956,30 @@
+   if ((cpuFd = fopen ("/proc/cpuinfo", "r")) == NULL)
+     piGpioLayoutOops ("Unable to open /proc/cpuinfo") ;
+ 
++  char buffer[12] ;
++  const char *ranges_file = "/proc/device-tree/soc/ranges" ;
++  int info_fd = open(ranges_file, O_RDONLY) ;
++
++  if (info_fd < 0) {
++    fprintf(stderr, "cannot open: %s", ranges_file) ;
++    exit (EXIT_FAILURE) ;
++  }
++
++  ssize_t n = read(info_fd, buffer, sizeof(buffer)) ;
++  close(info_fd) ;
++
++  if (n < 8) {
++    fprintf(stderr, "cannot read base address: %s", ranges_file) ;
++    exit (EXIT_FAILURE) ;
++  }
++
++  uint32_t gpio_base =  (buffer[4] << 24) + (buffer[5] << 16) + (buffer[6] << 8) + (buffer[7] << 0) ;
++
++  if (!gpio_base)
++  {
++    gpio_base = (buffer[8] << 24) + (buffer[9] << 16) + (buffer[10] << 8) + (buffer[11] << 0) ;
++  }
++
+   while (fgets (line, 120, cpuFd) != NULL)
+     if (strncmp (line, "Revision", 8) == 0)
+       break ;
+@@ -1073,6 +1098,10 @@
+ 
+     else                              { *model = 0           ; *rev = 0              ; *mem =   0 ; *maker = 0 ;               }
+   }
++  if (gpio_base == GPIO_PERI_BASE_NEW2)
++  {
++    *model = PI_MODEL_4;
++  }
+ }
+  
+ 
+@@ -1205,6 +1234,11 @@
+ void pwmSetClock (int divisor)
+ {
+   uint32_t pwm_control ;
++
++  if(piGpioBase == GPIO_PERI_BASE_NEW2)
++  {
++    divisor = 540*divisor/192;
++  }
+   divisor &= 4095 ;
+ 
+   if ((wiringPiMode == WPI_MODE_PINS) || (wiringPiMode == WPI_MODE_PHYS) || (wiringPiMode == WPI_MODE_GPIO))
+@@ -2266,6 +2300,10 @@
+       piGpioBase = GPIO_PERI_BASE_OLD ;
+       break ;
+ 
++    case PI_MODEL_4:
++      piGpioBase = GPIO_PERI_BASE_NEW2 ;
++      break ;
++
+     default:
+       piGpioBase = GPIO_PERI_BASE_NEW ;
+       break ;
+diff -ruN WiringPi-Python.orig/WiringPi/wiringPi/wiringPi.h WiringPi-Python/WiringPi/wiringPi/wiringPi.h
+--- WiringPi-Python.orig/WiringPi/wiringPi/wiringPi.h	2019-07-04 12:21:59.385684131 +0900
++++ WiringPi-Python/WiringPi/wiringPi/wiringPi.h	2019-07-04 11:51:17.334077283 +0900
+@@ -100,6 +100,7 @@
+ #define	PI_MODEL_CM3		10
+ #define	PI_MODEL_ZERO_W		12
+ #define	PI_MODEL_3P 		13
++#define	PI_MODEL_4 		14
+ 
+ #define	PI_VERSION_1		0
+ #define	PI_VERSION_1_1		1
