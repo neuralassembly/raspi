@@ -17,13 +17,14 @@ try:
     import Tkinter as tk
 except ImportError: # for Python 3
     import tkinter as tk
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 
 from time import sleep
 import smbus
 import math
 import sys
 
+session = tf.Session()
 graph = tf.get_default_graph()
 
 version = cv2.__version__.split(".")
@@ -156,7 +157,8 @@ recognizedHand = 0
 if len(sys.argv)==2:
     savefile = sys.argv[1]
     try:
-        model = keras.models.load_model(savefile)
+        with session.as_default():
+            model = keras.models.load_model(savefile)
     except IOError:
         print('学習済ファイル{0}を開けません'.format(savefile))
         sys.exit()
@@ -193,91 +195,92 @@ def getImageVector(img):
 
 # 手の認識をし続ける関数
 def imageProcessing():
-    with graph.as_default():
-        with picamera.PiCamera() as camera:
-            with picamera.array.PiRGBArray(camera) as stream:
-                # カメラの解像度を320x240にセット
-                camera.resolution = (320, 240)
-                # カメラのフレームレートを15fpsにセット
-                camera.framerate = 15
-                # ホワイトバランスをfluorescent(蛍光灯)モードにセット
-                camera.awb_mode = 'fluorescent'
+    with session.as_default():
+        with graph.as_default():
+            with picamera.PiCamera() as camera:
+                with picamera.array.PiRGBArray(camera) as stream:
+                    # カメラの解像度を320x240にセット
+                    camera.resolution = (320, 240)
+                    # カメラのフレームレートを15fpsにセット
+                    camera.framerate = 15
+                    # ホワイトバランスをfluorescent(蛍光灯)モードにセット
+                    camera.awb_mode = 'fluorescent'
 
-                while True:
-                    # stream.arrayにBGRの順で映像データを格納
-                    camera.capture(stream, 'bgr', use_video_port=True)
+                    while True:
+                        # stream.arrayにBGRの順で映像データを格納
+                        camera.capture(stream, 'bgr', use_video_port=True)
 
-                    # 映像データをHSV形式に変換
-                    hsv = cv2.cvtColor(stream.array, cv2.COLOR_BGR2HSV)
-                    # HSV形式からHチャンネルとSチャンネルの画像を得る
-                    hsv_channels = cv2.split(hsv)
-                    h_channel = hsv_channels[0]
-                    s_channel = hsv_channels[1]
+                        # 映像データをHSV形式に変換
+                        hsv = cv2.cvtColor(stream.array, cv2.COLOR_BGR2HSV)
+                        # HSV形式からHチャンネルとSチャンネルの画像を得る
+                        hsv_channels = cv2.split(hsv)
+                        h_channel = hsv_channels[0]
+                        s_channel = hsv_channels[1]
 
-                    # Hチャンネルを平滑化
-                    h_binary = cv2.GaussianBlur(h_channel, (5,5), 0)
+                        # Hチャンネルを平滑化
+                        h_binary = cv2.GaussianBlur(h_channel, (5,5), 0)
 
-                    # Hチャンネルの二値化画像を作成
-                    # hmin～hmaxの範囲を255（白）に、それ以外を0（黒）に
-                    ret,h_binary = cv2.threshold(h_binary, hmax, 255, cv2.THRESH_TOZERO_INV)
-                    ret,h_binary = cv2.threshold(h_binary, hmin, 255, cv2.THRESH_BINARY)
-                    # smin～255の範囲を255（白）に、それ以外を0に（黒）に
-                    ret,s_binary = cv2.threshold(s_channel, smin, 255, cv2.THRESH_BINARY)
+                        # Hチャンネルの二値化画像を作成
+                        # hmin～hmaxの範囲を255（白）に、それ以外を0（黒）に
+                        ret,h_binary = cv2.threshold(h_binary, hmax, 255, cv2.THRESH_TOZERO_INV)
+                        ret,h_binary = cv2.threshold(h_binary, hmin, 255, cv2.THRESH_BINARY)
+                        # smin～255の範囲を255（白）に、それ以外を0に（黒）に
+                        ret,s_binary = cv2.threshold(s_channel, smin, 255, cv2.THRESH_BINARY)
 
-                    # HチャンネルとSチャンネルの二値化画像のANDをとる
-                    # HチャンネルとSチャンネルの両方で255（白）の領域のみ白となる
-                    hs_and = h_binary & s_binary
+                        # HチャンネルとSチャンネルの二値化画像のANDをとる
+                        # HチャンネルとSチャンネルの両方で255（白）の領域のみ白となる
+                        hs_and = h_binary & s_binary
 
-                    # 以下、最も広い白領域のみを残すための計算
-                    # まず、白領域の塊（クラスター）にラベルを振る
-                    if CVversion == 2:
-                        img_dist, img_label = cv2.distanceTransformWithLabels(255-hs_and, cv2.cv.CV_DIST_L2, 5)
-                    else:
-                        img_dist, img_label = cv2.distanceTransformWithLabels(255-hs_and, cv2.DIST_L2, 5)
-                    img_label = np.uint8(img_label) & hs_and
-                    # ラベル0は黒領域なので除外
-                    img_label_not_zero = img_label[img_label != 0]
-                    # 最も多く現れたラベルが最も広い白領域のラベル
-                    if len(img_label_not_zero) != 0:
-                        m = stats.mode(img_label_not_zero)[0]
-                    else:
-                        m = 0
-                    # 最大の白領域のみを残す
-                    hand = np.uint8(img_label == m)*255
+                        # 以下、最も広い白領域のみを残すための計算
+                        # まず、白領域の塊（クラスター）にラベルを振る
+                        if CVversion == 2:
+                            img_dist, img_label = cv2.distanceTransformWithLabels(255-hs_and, cv2.cv.CV_DIST_L2, 5)
+                        else:
+                            img_dist, img_label = cv2.distanceTransformWithLabels(255-hs_and, cv2.DIST_L2, 5)
+                        img_label = np.uint8(img_label) & hs_and
+                        # ラベル0は黒領域なので除外
+                        img_label_not_zero = img_label[img_label != 0]
+                        # 最も多く現れたラベルが最も広い白領域のラベル
+                        if len(img_label_not_zero) != 0:
+                            m = stats.mode(img_label_not_zero)[0]
+                        else:
+                            m = 0
+                        # 最大の白領域のみを残す
+                        hand = np.uint8(img_label == m)*255
 
-                    # 最大の白領域からscikit-learnに入力するためのベクトルを取得
-                    hand_vector = getImageVector(hand)
+                        # 最大の白領域からscikit-learnに入力するためのベクトルを取得
+                        hand_vector = getImageVector(hand)
 
-                    # 学習済のニューラルネットワークから結果を取得
-                    X = np.array(hand_vector)
-                    if K.image_data_format() == 'channels_first':
-                        X = X.reshape(X.shape[0], 1, img_rows, img_cols)
-                        input_shape = (1, img_rows, img_cols)
-                    else:
-                        X = X.reshape(X.shape[0], img_rows, img_cols, 1)
-                        input_shape = (img_rows, img_cols, 1)
-                    result = model.predict_classes(X, verbose=0)
+                        # 学習済のニューラルネットワークから結果を取得
+                        X = np.array(hand_vector)
+                        if K.image_data_format() == 'channels_first':
+                            X = X.reshape(X.shape[0], 1, img_rows, img_cols)
+                            input_shape = (1, img_rows, img_cols)
+                        else:
+                            X = X.reshape(X.shape[0], img_rows, img_cols, 1)
+                            input_shape = (img_rows, img_cols, 1)
+                        result = model.predict_classes(X, verbose=0)
 
-                    # 分類結果をrecognizedHandに格納
-                    global recognizedHand
-                    recognizedHand = result[0]
+                        # 分類結果をrecognizedHandに格納
+                        global recognizedHand
+                        recognizedHand = result[0]
 
-                    # 手と判定されている領域を表示
-                    cv2.imshow('hand', hand)
+                        # 手と判定されている領域を表示
+                        cv2.imshow('hand', hand)
 
-                    # waitを入れる
-                    key = cv2.waitKey(1) 
+                        # waitを入れる
+                        key = cv2.waitKey(1) 
 
-                    if appliStop == True:
-                        break
+                        if appliStop == True:
+                            break
 
-                    # streamをリセット
-                    stream.seek(0)
-                    stream.truncate()
+                        # streamをリセット
+                        stream.seek(0)
+                        stream.truncate()
 
-                cv2.destroyAllWindows()
-                app.jankenStop()
-                app.quit()
+                    cv2.destroyAllWindows()
+                    app.jankenStop()
+                    app.quit()
 
 def moveHand():
     global Jprev
