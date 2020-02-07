@@ -1,6 +1,6 @@
 [Unit]
 Description=WebIOPI
-After=syslog.target
+After=network.target
 
 [Service]
 Type=simple
