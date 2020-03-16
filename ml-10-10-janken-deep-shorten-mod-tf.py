@@ -4,7 +4,6 @@ import picamera.array
 import cv2
 import numpy as np
 from scipy import stats
-from sklearn.neural_network import MLPClassifier
 from sklearn.linear_model import Perceptron
 import keras
 from keras import backend as K
