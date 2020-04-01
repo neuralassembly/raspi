@@ -1,0 +1,11 @@
+--- drivers/media/rc/lirc_dev.c.orig	2020-03-31 18:41:55.385607926 +0900
++++ drivers/media/rc/lirc_dev.c	2020-03-31 18:42:06.835383735 +0900
+@@ -29,7 +29,7 @@
+ #include "rc-core-priv.h"
+ #include <uapi/linux/lirc.h>
+ 
+-#define LIRCBUF_SIZE	256
++#define LIRCBUF_SIZE	1024
+ 
+ static dev_t lirc_base_dev;
+ 
