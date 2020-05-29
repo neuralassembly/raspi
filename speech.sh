@@ -15,7 +15,11 @@ echo "$1" | open_jtalk -x $DICDIR -m $HTSVOICE -ow $TMPVOICE
 # for the device on Raspberry Pi
 aplay -q $TMPVOICE
 
-# for USB sound card
+# for USB sound card (old Raspbian)
+#  or earphone jack on Raspberrry Pi (Raspberry Pi OS 2020-05-27 or later)
 #aplay -D plughw:1,0 -q $TMPVOICE
+
+# for USB sound card (Raspberry Pi OS 2020-05-27 or later)
+#aplay -D plughw:2,0 -q $TMPVOICE
 
 rm -f $TMPVOICE
