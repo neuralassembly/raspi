@@ -1,0 +1,453 @@
+diff -ruN raspi2-sample/bb2/02/script.py raspi2-sample-pigpio/bb2/02/script.py
+--- raspi2-sample/bb2/02/script.py	2020-03-27 16:07:21.000000000 +0900
++++ raspi2-sample-pigpio/bb2/02/script.py	2020-04-06 14:18:58.149999211 +0900
+@@ -1,17 +1,16 @@
+ import webiopi
+ import RPi.GPIO as GPIO
+ from time import sleep
+-import wiringpi2 as wiringpi
++import pigpio
+ 
+ def getServoDutyHwForWebIOPi(id, val):
+     val_min = 0
+     val_max = 1
+-    # デューティ比0%を0、100%を1024として数値を入力
+-    servo_min = 36   # 50Hz(周期20ms)、デューティ比3.5%: 3.5*1024/100=約36
+-    servo_max = 102  # 50Hz(周期20ms)、デューティ比10%: 10*1024/100=約102
++    servo_min = 35000   # 最小デューティ比3.5%を10000倍して格納
++    servo_max = 100000  # 最大デューティ比10%を10000倍して格納
+     if id==1:
+-        servo_min = 53
+-        servo_max = 85
++        servo_min = 51770
++        servo_max = 83230
+ 
+     duty = int((servo_min-servo_max)*(val-val_min)/(val_max-val_min) + servo_max)
+     # 一般的なサーボモーターはこちらを有効に
+@@ -21,16 +20,11 @@
+ PWM0 = 18
+ PWM1 = 19
+ 
+-# 左右方向はwiringPiによるハードウェアPWMで
+-wiringpi.wiringPiSetupGpio() # GPIO名で番号を指定する
+-wiringpi.pinMode(PWM0, wiringpi.GPIO.PWM_OUTPUT) # 左右方向のPWM出力を指定
+-wiringpi.pinMode(PWM1, wiringpi.GPIO.PWM_OUTPUT) # 上下方向のPWM出力を指定
+-wiringpi.pwmSetMode(wiringpi.GPIO.PWM_MODE_MS) # 周波数を固定するための設定
+-wiringpi.pwmSetClock(375) # 50 Hz。18750/(周波数) の計算値に近い整数
+-# PWMのピン番号とデフォルトのパルス幅をデューティ100%を1024として指定
+-# ここでは6.75%に対応する69を指定
+-wiringpi.pwmWrite(PWM0, 69) 
+-wiringpi.pwmWrite(PWM1, 69) 
++pi = pigpio.pi()
++pi.set_mode(PWM0, pigpio.OUTPUT)
++pi.set_mode(PWM1, pigpio.OUTPUT)
++pi.hardware_PWM(PWM0, 50, getServoDutyHwForWebIOPi(0, 0.5))
++pi.hardware_PWM(PWM1, 50, getServoDutyHwForWebIOPi(1, 0.5))
+ 
+ # デバッグ出力を有効に
+ webiopi.setDebug()
+@@ -46,12 +40,13 @@
+ # WebIOPi終了時に呼ばれる関数
+ def destroy():
+     webiopi.debug("Script with macros - Destroy")
++    pi.stop()
+ 
+ @webiopi.macro
+ def setHwPWM(servoID, duty, commandID):
+     id = int(servoID)
+     duty = getServoDutyHwForWebIOPi(id, float(duty))
+     if id==0:
+-        wiringpi.pwmWrite(PWM0,duty)
++        pi.hardware_PWM(PWM0, 50, duty)
+     else:
+-        wiringpi.pwmWrite(PWM1,duty)
++        pi.hardware_PWM(PWM1, 50, duty)
+diff -ruN raspi2-sample/bb2-06-01-zero.py raspi2-sample-pigpio/bb2-06-01-zero.py
+--- raspi2-sample/bb2-06-01-zero.py	2015-11-11 18:33:24.000000000 +0900
++++ raspi2-sample-pigpio/bb2-06-01-zero.py	2020-04-06 14:00:04.049999887 +0900
+@@ -1,20 +1,16 @@
+ # -*- coding: utf-8 -*-
+ import RPi.GPIO as GPIO
+ from time import sleep
+-import wiringpi2 as wiringpi
++import pigpio
+ 
+ PWM0 = 18
+ PWM1 = 19
+ 
+-wiringpi.wiringPiSetupGpio() # GPIO名で番号を指定する
+-wiringpi.pinMode(PWM0, wiringpi.GPIO.PWM_OUTPUT) # PWM出力を指定
+-wiringpi.pinMode(PWM1, wiringpi.GPIO.PWM_OUTPUT) # PWM出力を指定
+-wiringpi.pwmSetMode(wiringpi.GPIO.PWM_MODE_MS) # 周波数を固定するための設定
+-wiringpi.pwmSetClock(375) # 50 Hz。18750/(周波数) の計算値に近い整数
+-# PWMのピン番号18とデフォルトのパルス幅をデューティ100%を1024として指定
+-# ここでは6.75%に対応する69を指定
+-wiringpi.pwmWrite(PWM0, 69) 
+-wiringpi.pwmWrite(PWM1, 69) 
++pi = pigpio.pi()
++pi.set_mode(PWM0, pigpio.OUTPUT)
++pi.set_mode(PWM1, pigpio.OUTPUT)
++pi.hardware_PWM(PWM0, 50, 67500)
++pi.hardware_PWM(PWM1, 50, 67500)
+ 
+ try:
+     while True:
+@@ -23,3 +19,4 @@
+ except KeyboardInterrupt:
+     pass
+ 
++pi.stop()
+diff -ruN raspi2-sample/bb2-06-02-pantilt.py raspi2-sample-pigpio/bb2-06-02-pantilt.py
+--- raspi2-sample/bb2-06-02-pantilt.py	2015-11-11 18:33:36.000000000 +0900
++++ raspi2-sample-pigpio/bb2-06-02-pantilt.py	2020-04-06 14:00:04.049999887 +0900
+@@ -1,7 +1,7 @@
+ # -*- coding: utf-8 -*-
+ import RPi.GPIO as GPIO
+ from time import sleep
+-import wiringpi2 as wiringpi
++import pigpio
+ 
+ # MCP3208からSPI通信で12ビットのデジタル値を取得。0から7の8チャンネル使用可
+ def readadc(adcnum, clockpin, mosipin, misopin, cspin):
+@@ -37,12 +37,11 @@
+ def getServoDutyHw(id, val):
+     val_min = 0
+     val_max = 4095
+-    # デューティ比0%を0、100%を1024として数値を入力
+-    servo_min = 36   # 50Hz(周期20ms)、デューティ比3.5%: 3.5*1024/100=約36
+-    servo_max = 102  # 50Hz(周期20ms)、デューティ比10%: 10*1024/100=約102
++    servo_min = 35000   # 最小デューティ比3.5%を10000倍して格納
++    servo_max = 100000  # 最大デューティ比10%を10000倍して格納
+     if id==1:
+-        servo_min = 53
+-        servo_max = 85
++        servo_min = 51770
++        servo_max = 83230
+ 
+     duty = int((servo_min-servo_max)*(val-val_min)/(val_max-val_min) + servo_max)
+     # 一般的なサーボモーターはこちらを有効に
+@@ -65,16 +64,11 @@
+ GPIO.setup(SPIMISO, GPIO.IN)
+ GPIO.setup(SPICS, GPIO.OUT)
+ 
+-# wiringPiによるハードウェアPWM
+-wiringpi.wiringPiSetupGpio() # GPIO名で番号を指定する
+-wiringpi.pinMode(PWM0, wiringpi.GPIO.PWM_OUTPUT) # 左右方向PWM出力を指定
+-wiringpi.pinMode(PWM1, wiringpi.GPIO.PWM_OUTPUT) # 上下方向PWM出力を指定
+-wiringpi.pwmSetMode(wiringpi.GPIO.PWM_MODE_MS) # 周波数を固定するための設定
+-wiringpi.pwmSetClock(375) # 50 Hz。18750/(周波数) の計算値に近い整数
+-# PWMのピン番号とデフォルトのパルス幅をデューティ100%を1024として指定
+-# ここでは6.75%に対応する69を指定
+-wiringpi.pwmWrite(PWM0, 69) 
+-wiringpi.pwmWrite(PWM1, 69) 
++pi = pigpio.pi()
++pi.set_mode(PWM0, pigpio.OUTPUT)
++pi.set_mode(PWM1, pigpio.OUTPUT)
++pi.hardware_PWM(PWM0, 50, getServoDutyHw(0, 2048))
++pi.hardware_PWM(PWM1, 50, getServoDutyHw(1, 2048))
+ 
+ adc_pin0 = 0
+ adc_pin1 = 1
+@@ -83,11 +77,11 @@
+     while True:
+         inputVal0 = readadc(adc_pin0, SPICLK, SPIMOSI, SPIMISO, SPICS)
+         duty0 = getServoDutyHw(0, inputVal0)
+-        wiringpi.pwmWrite(PWM0, duty0)
++        pi.hardware_PWM(PWM0, 50, duty0)
+ 
+         inputVal1 = readadc(adc_pin1, SPICLK, SPIMOSI, SPIMISO, SPICS)
+         duty1 = getServoDutyHw(1, inputVal1)
+-        wiringpi.pwmWrite(PWM1, duty1)
++        pi.hardware_PWM(PWM1, 50, duty1)
+ 
+         sleep(0.2)
+ 
+@@ -95,3 +89,4 @@
+     pass
+ 
+ GPIO.cleanup()
++pi.stop()
+diff -ruN raspi2-sample/bb2-07-06-tracking-circle.py raspi2-sample-pigpio/bb2-07-06-tracking-circle.py
+--- raspi2-sample/bb2-07-06-tracking-circle.py	2019-01-26 01:05:28.000000000 +0900
++++ raspi2-sample-pigpio/bb2-07-06-tracking-circle.py	2020-04-06 14:00:04.049999887 +0900
+@@ -3,7 +3,7 @@
+ import picamera.array
+ import cv2
+ import math
+-import wiringpi2 as wiringpi
++import pigpio
+ 
+ version = cv2.__version__.split(".")
+ CVversion = int(version[0])
+@@ -11,12 +11,11 @@
+ def getServoDutyHw(id, val):
+     val_min = 0
+     val_max = 4095
+-    # デューティ比0%を0、100%を1024として数値を入力
+-    servo_min = 36   # 50Hz(周期20ms)、デューティ比3.5%: 3.5*1024/100=約36
+-    servo_max = 102  # 50Hz(周期20ms)、デューティ比10%: 10*1024/100=約102
++    servo_min = 35000   # 最小デューティ比3.5%を10000倍して格納
++    servo_max = 100000  # 最大デューティ比10%を10000倍して格納
+     if id==1:
+-        servo_min = 53
+-        servo_max = 85
++        servo_min = 51770
++        servo_max = 83230
+     duty = int((servo_min-servo_max)*(val-val_min)/(val_max-val_min) + servo_max)
+     # 一般的なサーボモーターはこちらを有効に
+     #duty = int((servo_max-servo_min)*(val-val_min)/(val_max-val_min) + servo_min)
+@@ -29,16 +28,11 @@
+ PWM0 = 18
+ PWM1 = 19
+ 
+-# wiringPiによるハードウェアPWM
+-wiringpi.wiringPiSetupGpio() # GPIO名で番号を指定する
+-wiringpi.pinMode(PWM0, wiringpi.GPIO.PWM_OUTPUT) # 左右方向のPWM出力を指定
+-wiringpi.pinMode(PWM1, wiringpi.GPIO.PWM_OUTPUT) # 上下方向のPWM出力を指定
+-wiringpi.pwmSetMode(wiringpi.GPIO.PWM_MODE_MS) # 周波数を固定するための設定
+-wiringpi.pwmSetClock(375) # 50 Hz。18750/(周波数) の計算値に近い整数
+-# PWMのピン番号とデフォルトのパルス幅をデューティ100%を1024として指定。
+-# ここでは6.75%に対応する69を指定
+-wiringpi.pwmWrite(PWM0, 69)
+-wiringpi.pwmWrite(PWM1, 69)
++pi = pigpio.pi()
++pi.set_mode(PWM0, pigpio.OUTPUT)
++pi.set_mode(PWM1, pigpio.OUTPUT)
++pi.hardware_PWM(PWM0, 50, getServoDutyHw(0, 2048))
++pi.hardware_PWM(PWM1, 50, getServoDutyHw(1, 2048))
+ 
+ prev_x = 160
+ prev_y = 120
+@@ -95,10 +89,10 @@
+                 ratio_y = -3
+ 
+                 duty0 = getServoDutyHw(0, ratio_x*dx + prev_input_x)
+-                wiringpi.pwmWrite(PWM0, duty0)
++                pi.hardware_PWM(PWM0, 50, duty0)
+ 
+                 duty1 = getServoDutyHw(1, ratio_y*dy + prev_input_y)
+-                wiringpi.pwmWrite(PWM1, duty1)
++                pi.hardware_PWM(PWM1, 50, duty1)
+ 
+                 # サーボモーターに対する入力値を更新
+                 prev_input_x = ratio_x*dx + prev_input_x
+@@ -127,4 +121,5 @@
+             stream.seek(0)
+             stream.truncate()
+ 
++        pi.stop() 
+         cv2.destroyAllWindows()
+diff -ruN raspi2-sample/bb2-07-07-tracking-face.py raspi2-sample-pigpio/bb2-07-07-tracking-face.py
+--- raspi2-sample/bb2-07-07-tracking-face.py	2019-01-26 01:05:40.000000000 +0900
++++ raspi2-sample-pigpio/bb2-07-07-tracking-face.py	2020-04-06 14:00:04.049999887 +0900
+@@ -3,7 +3,7 @@
+ import picamera.array
+ import cv2
+ import math
+-import wiringpi2 as wiringpi
++import pigpio
+ 
+ cascade_path =  "/usr/share/opencv/haarcascades/haarcascade_frontalface_alt.xml"
+ cascade = cv2.CascadeClassifier(cascade_path)
+@@ -11,12 +11,11 @@
+ def getServoDutyHw(id, val):
+     val_min = 0
+     val_max = 4095
+-    # デューティ比0%を0、100%を1024として数値を入力
+-    servo_min = 36   # 50Hz(周期20ms)、デューティ比3.5%: 3.5*1024/100=約36
+-    servo_max = 102  # 50Hz(周期20ms)、デューティ比10%: 10*1024/100=約102
++    servo_min = 35000   # 最小デューティ比3.5%を10000倍して格納
++    servo_max = 100000  # 最大デューティ比10%を10000倍して格納
+     if id==1:
+-        servo_min = 53
+-        servo_max = 85
++        servo_min = 51770
++        servo_max = 83230
+     duty = int((servo_min-servo_max)*(val-val_min)/(val_max-val_min) + servo_max)
+     # 一般的なサーボモーターはこちらを有効に
+     #duty = int((servo_max-servo_min)*(val-val_min)/(val_max-val_min) + servo_min)
+@@ -29,16 +28,11 @@
+ PWM0 = 18
+ PWM1 = 19
+ 
+-# wiringPiによるハードウェアPWM
+-wiringpi.wiringPiSetupGpio() # GPIO名で番号を指定する
+-wiringpi.pinMode(PWM0, wiringpi.GPIO.PWM_OUTPUT) # 左右方向のPWM出力を指定
+-wiringpi.pinMode(PWM1, wiringpi.GPIO.PWM_OUTPUT) # 上下方向のPWM出力を指定
+-wiringpi.pwmSetMode(wiringpi.GPIO.PWM_MODE_MS) # 周波数を固定するための設定
+-wiringpi.pwmSetClock(375) # 50 Hz。18750/(周波数) の計算値に近い整数
+-# PWMのピン番号とデフォルトのパルス幅をデューティ100%を1024として指定。
+-# ここでは6.75%に対応する69を指定
+-wiringpi.pwmWrite(PWM0, 69)
+-wiringpi.pwmWrite(PWM1, 69)
++pi = pigpio.pi()
++pi.set_mode(PWM0, pigpio.OUTPUT)
++pi.set_mode(PWM1, pigpio.OUTPUT)
++pi.hardware_PWM(PWM0, 50, getServoDutyHw(0, 2048))
++pi.hardware_PWM(PWM1, 50, getServoDutyHw(1, 2048))
+ 
+ prev_x = 160
+ prev_y = 120
+@@ -85,10 +79,10 @@
+                 ratio_y = -3
+ 
+                 duty0 = getServoDutyHw(0, ratio_x*dx + prev_input_x)
+-                wiringpi.pwmWrite(PWM0, duty0)
++                pi.hardware_PWM(PWM0, 50, duty0)
+ 
+                 duty1 = getServoDutyHw(1, ratio_y*dy + prev_input_y)
+-                wiringpi.pwmWrite(PWM1, duty1)
++                pi.hardware_PWM(PWM1, 50, duty1)
+ 
+                 # サーボモーターに対する入力値を更新
+                 prev_input_x = ratio_x*dx + prev_input_x
+@@ -117,4 +111,5 @@
+             stream.seek(0)
+             stream.truncate()
+ 
++        pi.stop() 
+         cv2.destroyAllWindows()
+diff -ruN raspi2-sample/bb2-07-15-tracking-circle.py raspi2-sample-pigpio/bb2-07-15-tracking-circle.py
+--- raspi2-sample/bb2-07-15-tracking-circle.py	2019-01-26 01:06:57.000000000 +0900
++++ raspi2-sample-pigpio/bb2-07-15-tracking-circle.py	2020-04-06 14:00:04.049999887 +0900
+@@ -3,7 +3,7 @@
+ import picamera.array
+ import cv2
+ import math
+-import wiringpi2 as wiringpi
++import pigpio
+ import pygame
+ import sys
+ 
+@@ -26,12 +26,11 @@
+ def getServoDutyHw(id, val):
+     val_min = 0
+     val_max = 4095
+-    # デューティ比0%を0、100%を1024として数値を入力
+-    servo_min = 36   # 50Hz(周期20ms)、デューティ比3.5%: 3.5*1024/100=約36
+-    servo_max = 102  # 50Hz(周期20ms)、デューティ比10%: 10*1024/100=約102
++    servo_min = 35000   # 最小デューティ比3.5%を10000倍して格納
++    servo_max = 100000  # 最大デューティ比10%を10000倍して格納
+     if id==1:
+-        servo_min = 53
+-        servo_max = 85
++        servo_min = 51770
++        servo_max = 83230
+     duty = int((servo_min-servo_max)*(val-val_min)/(val_max-val_min) + servo_max)
+     # 一般的なサーボモーターはこちらを有効に
+     #duty = int((servo_max-servo_min)*(val-val_min)/(val_max-val_min) + servo_min)
+@@ -44,16 +43,11 @@
+ PWM0 = 18
+ PWM1 = 19
+ 
+-# wiringPiによるハードウェアPWM
+-wiringpi.wiringPiSetupGpio() # GPIO名で番号を指定する
+-wiringpi.pinMode(PWM0, wiringpi.GPIO.PWM_OUTPUT) # 左右方向のPWM出力を指定
+-wiringpi.pinMode(PWM1, wiringpi.GPIO.PWM_OUTPUT) # 上下方向のPWM出力を指定
+-wiringpi.pwmSetMode(wiringpi.GPIO.PWM_MODE_MS) # 周波数を固定するための設定
+-wiringpi.pwmSetClock(375) # 50 Hz。18750/(周波数) の計算値に近い整数
+-# PWMのピン番号とデフォルトのパルス幅をデューティ100%を1024として指定。
+-# ここでは6.75%に対応する69を指定
+-wiringpi.pwmWrite(PWM0, 69)
+-wiringpi.pwmWrite(PWM1, 69)
++pi = pigpio.pi()
++pi.set_mode(PWM0, pigpio.OUTPUT)
++pi.set_mode(PWM1, pigpio.OUTPUT)
++pi.hardware_PWM(PWM0, 50, getServoDutyHw(0, 2048))
++pi.hardware_PWM(PWM1, 50, getServoDutyHw(1, 2048))
+ 
+ prev_x = 160
+ prev_y = 120
+@@ -110,10 +104,10 @@
+                 ratio_y = -3
+ 
+                 duty0 = getServoDutyHw(0, ratio_x*dx + prev_input_x)
+-                wiringpi.pwmWrite(PWM0, duty0)
++                pi.hardware_PWM(PWM0, 50, duty0)
+ 
+                 duty1 = getServoDutyHw(1, ratio_y*dy + prev_input_y)
+-                wiringpi.pwmWrite(PWM1, duty1)
++                pi.hardware_PWM(PWM1, 50, duty1)
+ 
+                 # サーボモーターに対する入力値を更新
+                 prev_input_x = ratio_x*dx + prev_input_x
+@@ -138,6 +132,7 @@
+             for e in pygame.event.get():
+                 if e.type == pygame.KEYDOWN:
+                     if e.key == pygame.K_q:
++                        pi.stop()
+                         pygame.quit()
+                         sys.exit()
+ 
+diff -ruN raspi2-sample/bb2-07-16-tracking-face.py raspi2-sample-pigpio/bb2-07-16-tracking-face.py
+--- raspi2-sample/bb2-07-16-tracking-face.py	2019-01-26 01:07:05.000000000 +0900
++++ raspi2-sample-pigpio/bb2-07-16-tracking-face.py	2020-04-06 14:00:04.049999887 +0900
+@@ -3,7 +3,7 @@
+ import picamera.array
+ import cv2
+ import math
+-import wiringpi2 as wiringpi
++import pigpio
+ import pygame
+ import sys
+ 
+@@ -26,12 +26,11 @@
+ def getServoDutyHw(id, val):
+     val_min = 0
+     val_max = 4095
+-    # デューティ比0%を0、100%を1024として数値を入力
+-    servo_min = 36   # 50Hz(周期20ms)、デューティ比3.5%: 3.5*1024/100=約36
+-    servo_max = 102  # 50Hz(周期20ms)、デューティ比10%: 10*1024/100=約102
++    servo_min = 35000   # 最小デューティ比3.5%を10000倍して格納
++    servo_max = 100000  # 最大デューティ比10%を10000倍して格納
+     if id==1:
+-        servo_min = 53
+-        servo_max = 85
++        servo_min = 51770
++        servo_max = 83230
+     duty = int((servo_min-servo_max)*(val-val_min)/(val_max-val_min) + servo_max)
+     # 一般的なサーボモーターはこちらを有効に
+     #duty = int((servo_max-servo_min)*(val-val_min)/(val_max-val_min) + servo_min)
+@@ -44,16 +43,11 @@
+ PWM0 = 18
+ PWM1 = 19
+ 
+-# wiringPiによるハードウェアPWM
+-wiringpi.wiringPiSetupGpio() # GPIO名で番号を指定する
+-wiringpi.pinMode(PWM0, wiringpi.GPIO.PWM_OUTPUT) # 左右方向のPWM出力を指定
+-wiringpi.pinMode(PWM1, wiringpi.GPIO.PWM_OUTPUT) # 上下方向のPWM出力を指定
+-wiringpi.pwmSetMode(wiringpi.GPIO.PWM_MODE_MS) # 周波数を固定するための設定
+-wiringpi.pwmSetClock(375) # 50 Hz。18750/(周波数) の計算値に近い整数
+-# PWMのピン番号とデフォルトのパルス幅をデューティ100%を1024として指定。
+-# ここでは6.75%に対応する69を指定
+-wiringpi.pwmWrite(PWM0, 69)
+-wiringpi.pwmWrite(PWM1, 69)
++pi = pigpio.pi()
++pi.set_mode(PWM0, pigpio.OUTPUT)
++pi.set_mode(PWM1, pigpio.OUTPUT)
++pi.hardware_PWM(PWM0, 50, getServoDutyHw(0, 2048))
++pi.hardware_PWM(PWM1, 50, getServoDutyHw(1, 2048))
+ 
+ prev_x = 160
+ prev_y = 120
+@@ -100,10 +94,10 @@
+                 ratio_y = -3
+ 
+                 duty0 = getServoDutyHw(0, ratio_x*dx + prev_input_x)
+-                wiringpi.pwmWrite(PWM0, duty0)
++                pi.hardware_PWM(PWM0, 50, duty0)
+ 
+                 duty1 = getServoDutyHw(1, ratio_y*dy + prev_input_y)
+-                wiringpi.pwmWrite(PWM1, duty1)
++                pi.hardware_PWM(PWM1, 50, duty1)
+ 
+                 # サーボモーターに対する入力値を更新
+                 prev_input_x = ratio_x*dx + prev_input_x
+@@ -128,6 +122,7 @@
+             for e in pygame.event.get():
+                 if e.type == pygame.KEYDOWN:
+                     if e.key == pygame.K_q:
++                        pi.stop()
+                         pygame.quit()
+                         sys.exit()
+ 
