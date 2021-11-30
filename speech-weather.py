@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import RPi.GPIO as GPIO
 import smbus
 import sys
@@ -80,68 +79,36 @@ def my_callback(channel):
             pass
     elif channel==23:
         if mode==0:
-            s = u('今日の天気は')+weather_kanji
+            s = '今日の天気は'+weather_kanji
             args = ['speech.sh', s]
             try:
                 subprocess.Popen(args)
             except OSError:
                 print('no speech.sh')
         elif mode==1 or mode==3:
-            s = u('現在')+'{0:.1f}'.format(temperature)+u('度')
+            s = '現在'+'{0:.1f}'.format(temperature)+'度'
             args = ['speech.sh', s]
             try:
                 subprocess.Popen(args)
             except OSError:
                 print('no speech.sh')
         elif mode==2:
-            s = u('明日の天気は')+weather2_kanji
+            s = '明日の天気は'+weather2_kanji
             args = ['speech.sh', s]
             try:
                 subprocess.Popen(args)
             except OSError:
                 print('no speech.sh')
         
-try:
-    unicode # python2
-    def u(str): return str.decode('utf-8')
-    pass
-except: # python3
-    def u(str): return str
-    pass
-
-# 最低気温と最高気温を「/」区切りの文字列に
-def getLCDMinMax(temp):
-    if temp['min'] != None:
-        min = '{0}'.format(temp['min']['celsius'])
-    else:
-        min = '--'
-
-    if temp['max'] != None:
-        max = '{0}'.format(temp['max']['celsius'])
-    else:
-        max = '--'
-    return min + '/' + max
-
-# 天気をカタカナの文字列に
-def getLCDWeather(weather):
-    if weather.find(u('のち')) != -1:
-        datas = weather.split(u('のち')) 
-        return replaceWeather(datas[0])+chr(0x3e)+replaceWeather(datas[1]) # >
-    elif weather.find(u('時々')) != -1:
-        datas = weather.split(u('時々'))
-        return replaceWeather(datas[0])+'/'+replaceWeather(datas[1])
-    else:
-        return replaceWeather(weather)
-
 # 各天気をカタカナに
 def replaceWeather(weather):
-    if weather.find(u('晴')) != -1:
+    if weather.find('晴') != -1:
         return chr(0xca)+chr(0xda) # ハレ
-    elif weather.find(u('曇')) != -1:
+    elif weather.find('曇') != -1:
         return chr(0xb8)+chr(0xd3)+chr(0xd8) # クモリ
-    elif weather.find(u('雨')) != -1:
+    elif weather.find('雨') != -1:
         return chr(0xb1)+chr(0xd2) # アメ
-    elif weather.find(u('雪')) != -1:
+    elif weather.find('雪') != -1:
         return chr(0xd5)+chr(0xb7) # ユキ
     else:
         return '--'
@@ -149,31 +116,43 @@ def replaceWeather(weather):
 # Webサービスより天気予報を取得
 def getWeather():
     global minmax, weather, minmax2, weather2, weather_kanji, weather2_kanji
-    location = 130010  # 東京
-    proxies = None
-    # proxy環境下の方は下記を記述して有効に
-    #proxies = {
-    #    'http': 'プロキシサーバ名:ポート番号',
-    #    'https': 'プロキシサーバ名:ポート番号'
-    #}
+
+    lat = '35.6895'
+    lon = '139.6917'
+    exclude = 'current,minutely,hourly,alerts'
+    key = 'API_KEY'
+
+    units = 'metric'
+    lang = 'ja'
+
     try:
-        weather_json = requests.get(
-            'http://weather.livedoor.com/forecast/webservice/json/v1?city={0}'.format(location), proxies=proxies, timeout=5
-        ).json()
+        address = 'http://api.openweathermap.org/data/2.5/onecall?lat={lat}&lon={lon}&exclude={exclude}&appid={key}&units={units}&lang={lang}'.format(lat=lat, lon=lon, exclude=exclude, key=key, units=units, lang=lang)
+        weather_json = requests.get(address).json()
         print('インターネットから天気予報データを入手しました')
     except requests.exceptions.RequestException:
         print('ネットワークエラー')
         if second==0:
             sys.exit()
-    for forecast in weather_json['forecasts']:
-        if forecast['dateLabel'] == u('今日'):
-            minmax = getLCDMinMax(forecast['temperature'])
-            weather = getLCDWeather(forecast['telop'])
-            weather_kanji = forecast['telop']
-        if forecast['dateLabel'] == u('明日'):
-            minmax2 = getLCDMinMax(forecast['temperature'])
-            weather2 = getLCDWeather(forecast['telop'])
-            weather2_kanji = forecast['telop']
+
+    weather_dict = {'Clear':'晴れ', 'Clouds':'曇り', 'Rain':'雨','Snow':'雪', 'Thunderstorm':'雷', 'Drizzle':'霧'}
+
+    for i in range(2):
+        forecast = weather_json['daily'][i]
+        temp_min = round(forecast['temp']['min'])
+        temp_max = round(forecast['temp']['max'])
+        try:
+            weather_tmp = weather_dict[forecast['weather'][0]['main']]
+        except KeyError:
+            weather_tmp = '未定義'
+
+        if i==0:
+            minmax = '{}/{}'.format(temp_min, temp_max)
+            weather = replaceWeather(weather_tmp)
+            weather_kanji = weather_tmp
+        else:
+            minmax2 = '{}/{}'.format(temp_min, temp_max)
+            weather2 = replaceWeather(weather_tmp)
+            weather2_kanji = weather_tmp
 
 # 天気情報をLCDに表示
 def displayWeather():
@@ -234,8 +213,8 @@ minmax = ''
 weather = ''
 minmax2 = ''
 weather2 = ''
-weather_kanji = u('');
-weather2_kanji = u('');
+weather_kanji = ''
+weather2_kanji = ''
 
 second = 0  # プログラム起動時から経過した秒数(目安)
 hour = 0    # プログラム起動時から経過した時間(目安)
