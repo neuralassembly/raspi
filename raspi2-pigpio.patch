@@ -1,11 +1,11 @@
 diff -ruN raspi2-sample/bb2/02/script.py raspi2-sample-pigpio/bb2/02/script.py
---- raspi2-sample/bb2/02/script.py	2020-03-27 16:07:21.000000000 +0900
-+++ raspi2-sample-pigpio/bb2/02/script.py	2020-04-06 14:18:58.149999211 +0900
+--- raspi2-sample/bb2/02/script.py	2023-03-27 15:23:25.000000000 +0900
++++ raspi2-sample-pigpio/bb2/02/script.py	2023-03-27 22:33:06.386604358 +0900
 @@ -1,17 +1,16 @@
  import webiopi
  import RPi.GPIO as GPIO
  from time import sleep
--import wiringpi2 as wiringpi
+-import wiringpi
 +import pigpio
  
  def getServoDutyHwForWebIOPi(id, val):
@@ -63,13 +63,13 @@ diff -ruN raspi2-sample/bb2/02/script.py raspi2-sample-pigpio/bb2/02/script.py
 -        wiringpi.pwmWrite(PWM1,duty)
 +        pi.hardware_PWM(PWM1, 50, duty)
 diff -ruN raspi2-sample/bb2-06-01-zero.py raspi2-sample-pigpio/bb2-06-01-zero.py
---- raspi2-sample/bb2-06-01-zero.py	2015-11-11 18:33:24.000000000 +0900
-+++ raspi2-sample-pigpio/bb2-06-01-zero.py	2020-04-06 14:00:04.049999887 +0900
+--- raspi2-sample/bb2-06-01-zero.py	2023-03-27 15:23:37.000000000 +0900
++++ raspi2-sample-pigpio/bb2-06-01-zero.py	2023-03-27 22:26:05.683200131 +0900
 @@ -1,20 +1,16 @@
  # -*- coding: utf-8 -*-
  import RPi.GPIO as GPIO
  from time import sleep
--import wiringpi2 as wiringpi
+-import wiringpi
 +import pigpio
  
  PWM0 = 18
@@ -98,13 +98,13 @@ diff -ruN raspi2-sample/bb2-06-01-zero.py raspi2-sample-pigpio/bb2-06-01-zero.py
  
 +pi.stop()
 diff -ruN raspi2-sample/bb2-06-02-pantilt.py raspi2-sample-pigpio/bb2-06-02-pantilt.py
---- raspi2-sample/bb2-06-02-pantilt.py	2015-11-11 18:33:36.000000000 +0900
-+++ raspi2-sample-pigpio/bb2-06-02-pantilt.py	2020-04-06 14:00:04.049999887 +0900
+--- raspi2-sample/bb2-06-02-pantilt.py	2023-03-27 15:23:50.000000000 +0900
++++ raspi2-sample-pigpio/bb2-06-02-pantilt.py	2023-03-27 22:26:53.490677829 +0900
 @@ -1,7 +1,7 @@
  # -*- coding: utf-8 -*-
  import RPi.GPIO as GPIO
  from time import sleep
--import wiringpi2 as wiringpi
+-import wiringpi
 +import pigpio
  
  # MCP3208からSPI通信で12ビットのデジタル値を取得。0から7の8チャンネル使用可
@@ -168,18 +168,18 @@ diff -ruN raspi2-sample/bb2-06-02-pantilt.py raspi2-sample-pigpio/bb2-06-02-pant
  GPIO.cleanup()
 +pi.stop()
 diff -ruN raspi2-sample/bb2-07-06-tracking-circle.py raspi2-sample-pigpio/bb2-07-06-tracking-circle.py
---- raspi2-sample/bb2-07-06-tracking-circle.py	2019-01-26 01:05:28.000000000 +0900
-+++ raspi2-sample-pigpio/bb2-07-06-tracking-circle.py	2020-04-06 14:00:04.049999887 +0900
+--- raspi2-sample/bb2-07-06-tracking-circle.py	2023-03-27 16:02:29.000000000 +0900
++++ raspi2-sample-pigpio/bb2-07-06-tracking-circle.py	2023-03-27 22:28:46.065447991 +0900
 @@ -3,7 +3,7 @@
  import picamera.array
  import cv2
  import math
--import wiringpi2 as wiringpi
+-import wiringpi
 +import pigpio
  
- version = cv2.__version__.split(".")
- CVversion = int(version[0])
-@@ -11,12 +11,11 @@
+ (w, h) = (320, 240)
+ 
+@@ -13,12 +13,11 @@
  def getServoDutyHw(id, val):
      val_min = 0
      val_max = 4095
@@ -196,7 +196,7 @@ diff -ruN raspi2-sample/bb2-07-06-tracking-circle.py raspi2-sample-pigpio/bb2-07
      duty = int((servo_min-servo_max)*(val-val_min)/(val_max-val_min) + servo_max)
      # 一般的なサーボモーターはこちらを有効に
      #duty = int((servo_max-servo_min)*(val-val_min)/(val_max-val_min) + servo_min)
-@@ -29,16 +28,11 @@
+@@ -31,16 +30,11 @@
  PWM0 = 18
  PWM1 = 19
  
@@ -216,40 +216,40 @@ diff -ruN raspi2-sample/bb2-07-06-tracking-circle.py raspi2-sample-pigpio/bb2-07
 +pi.hardware_PWM(PWM0, 50, getServoDutyHw(0, 2048))
 +pi.hardware_PWM(PWM1, 50, getServoDutyHw(1, 2048))
  
- prev_x = 160
- prev_y = 120
-@@ -95,10 +89,10 @@
-                 ratio_y = -3
+ wc = int(w/2)
+ hc = int(h/2)
+@@ -102,10 +96,10 @@
+                 dy = circle_y-hc  # 上下中央からのずれ
  
-                 duty0 = getServoDutyHw(0, ratio_x*dx + prev_input_x)
+                 duty0 = getServoDutyHw(0, int(ratio_x*dx) + prev_input_x)
 -                wiringpi.pwmWrite(PWM0, duty0)
 +                pi.hardware_PWM(PWM0, 50, duty0)
  
-                 duty1 = getServoDutyHw(1, ratio_y*dy + prev_input_y)
+                 duty1 = getServoDutyHw(1, int(ratio_y*dy) + prev_input_y)
 -                wiringpi.pwmWrite(PWM1, duty1)
 +                pi.hardware_PWM(PWM1, 50, duty1)
  
                  # サーボモーターに対する入力値を更新
-                 prev_input_x = ratio_x*dx + prev_input_x
-@@ -127,4 +121,5 @@
+                 prev_input_x = int(ratio_x*dx) + prev_input_x
+@@ -134,4 +128,5 @@
              stream.seek(0)
              stream.truncate()
  
 +        pi.stop() 
          cv2.destroyAllWindows()
 diff -ruN raspi2-sample/bb2-07-07-tracking-face.py raspi2-sample-pigpio/bb2-07-07-tracking-face.py
---- raspi2-sample/bb2-07-07-tracking-face.py	2019-01-26 01:05:40.000000000 +0900
-+++ raspi2-sample-pigpio/bb2-07-07-tracking-face.py	2020-04-06 14:00:04.049999887 +0900
+--- raspi2-sample/bb2-07-07-tracking-face.py	2023-03-27 16:09:39.000000000 +0900
++++ raspi2-sample-pigpio/bb2-07-07-tracking-face.py	2023-03-27 22:29:36.992891657 +0900
 @@ -3,7 +3,7 @@
  import picamera.array
  import cv2
  import math
--import wiringpi2 as wiringpi
+-import wiringpi
 +import pigpio
  
- cascade_path =  "/usr/share/opencv/haarcascades/haarcascade_frontalface_alt.xml"
- cascade = cv2.CascadeClassifier(cascade_path)
-@@ -11,12 +11,11 @@
+ (w, h)=(320, 240)
+ 
+@@ -16,12 +16,11 @@
  def getServoDutyHw(id, val):
      val_min = 0
      val_max = 4095
@@ -266,7 +266,7 @@ diff -ruN raspi2-sample/bb2-07-07-tracking-face.py raspi2-sample-pigpio/bb2-07-0
      duty = int((servo_min-servo_max)*(val-val_min)/(val_max-val_min) + servo_max)
      # 一般的なサーボモーターはこちらを有効に
      #duty = int((servo_max-servo_min)*(val-val_min)/(val_max-val_min) + servo_min)
-@@ -29,16 +28,11 @@
+@@ -34,16 +33,11 @@
  PWM0 = 18
  PWM1 = 19
  
@@ -286,40 +286,40 @@ diff -ruN raspi2-sample/bb2-07-07-tracking-face.py raspi2-sample-pigpio/bb2-07-0
 +pi.hardware_PWM(PWM0, 50, getServoDutyHw(0, 2048))
 +pi.hardware_PWM(PWM1, 50, getServoDutyHw(1, 2048))
  
- prev_x = 160
- prev_y = 120
-@@ -85,10 +79,10 @@
-                 ratio_y = -3
+ minsize = int(60*(w/640))
+ maxsize = int(300*(w/640))
+@@ -92,10 +86,10 @@
+                 dy = face_y-hc  # 上下中央からのずれ
  
-                 duty0 = getServoDutyHw(0, ratio_x*dx + prev_input_x)
+                 duty0 = getServoDutyHw(0, int(ratio_x*dx) + prev_input_x)
 -                wiringpi.pwmWrite(PWM0, duty0)
 +                pi.hardware_PWM(PWM0, 50, duty0)
  
-                 duty1 = getServoDutyHw(1, ratio_y*dy + prev_input_y)
+                 duty1 = getServoDutyHw(1, int(ratio_y*dy) + prev_input_y)
 -                wiringpi.pwmWrite(PWM1, duty1)
 +                pi.hardware_PWM(PWM1, 50, duty1)
  
                  # サーボモーターに対する入力値を更新
-                 prev_input_x = ratio_x*dx + prev_input_x
-@@ -117,4 +111,5 @@
+                 prev_input_x = int(ratio_x*dx) + prev_input_x
+@@ -124,4 +118,5 @@
              stream.seek(0)
              stream.truncate()
  
 +        pi.stop() 
          cv2.destroyAllWindows()
 diff -ruN raspi2-sample/bb2-07-15-tracking-circle.py raspi2-sample-pigpio/bb2-07-15-tracking-circle.py
---- raspi2-sample/bb2-07-15-tracking-circle.py	2019-01-26 01:06:57.000000000 +0900
-+++ raspi2-sample-pigpio/bb2-07-15-tracking-circle.py	2020-04-06 14:00:04.049999887 +0900
+--- raspi2-sample/bb2-07-15-tracking-circle.py	2023-03-27 16:04:02.000000000 +0900
++++ raspi2-sample-pigpio/bb2-07-15-tracking-circle.py	2023-03-27 22:30:23.536383223 +0900
 @@ -3,7 +3,7 @@
  import picamera.array
  import cv2
  import math
--import wiringpi2 as wiringpi
+-import wiringpi
 +import pigpio
  import pygame
  import sys
  
-@@ -26,12 +26,11 @@
+@@ -28,12 +28,11 @@
  def getServoDutyHw(id, val):
      val_min = 0
      val_max = 4095
@@ -336,7 +336,7 @@ diff -ruN raspi2-sample/bb2-07-15-tracking-circle.py raspi2-sample-pigpio/bb2-07
      duty = int((servo_min-servo_max)*(val-val_min)/(val_max-val_min) + servo_max)
      # 一般的なサーボモーターはこちらを有効に
      #duty = int((servo_max-servo_min)*(val-val_min)/(val_max-val_min) + servo_min)
-@@ -44,16 +43,11 @@
+@@ -46,16 +45,11 @@
  PWM0 = 18
  PWM1 = 19
  
@@ -356,22 +356,22 @@ diff -ruN raspi2-sample/bb2-07-15-tracking-circle.py raspi2-sample-pigpio/bb2-07
 +pi.hardware_PWM(PWM0, 50, getServoDutyHw(0, 2048))
 +pi.hardware_PWM(PWM1, 50, getServoDutyHw(1, 2048))
  
- prev_x = 160
- prev_y = 120
-@@ -110,10 +104,10 @@
-                 ratio_y = -3
+ wc = int(w/2)
+ hc = int(h/2)
+@@ -117,10 +111,10 @@
+                 dy = circle_y-hc  # 上下中央からのずれ
  
-                 duty0 = getServoDutyHw(0, ratio_x*dx + prev_input_x)
+                 duty0 = getServoDutyHw(0, int(ratio_x*dx) + prev_input_x)
 -                wiringpi.pwmWrite(PWM0, duty0)
 +                pi.hardware_PWM(PWM0, 50, duty0)
  
-                 duty1 = getServoDutyHw(1, ratio_y*dy + prev_input_y)
+                 duty1 = getServoDutyHw(1, int(ratio_y*dy) + prev_input_y)
 -                wiringpi.pwmWrite(PWM1, duty1)
 +                pi.hardware_PWM(PWM1, 50, duty1)
  
                  # サーボモーターに対する入力値を更新
-                 prev_input_x = ratio_x*dx + prev_input_x
-@@ -138,6 +132,7 @@
+                 prev_input_x = int(ratio_x*dx) + prev_input_x
+@@ -145,6 +139,7 @@
              for e in pygame.event.get():
                  if e.type == pygame.KEYDOWN:
                      if e.key == pygame.K_q:
@@ -380,18 +380,18 @@ diff -ruN raspi2-sample/bb2-07-15-tracking-circle.py raspi2-sample-pigpio/bb2-07
                          sys.exit()
  
 diff -ruN raspi2-sample/bb2-07-16-tracking-face.py raspi2-sample-pigpio/bb2-07-16-tracking-face.py
---- raspi2-sample/bb2-07-16-tracking-face.py	2019-01-26 01:07:05.000000000 +0900
-+++ raspi2-sample-pigpio/bb2-07-16-tracking-face.py	2020-04-06 14:00:04.049999887 +0900
+--- raspi2-sample/bb2-07-16-tracking-face.py	2023-03-27 16:10:53.000000000 +0900
++++ raspi2-sample-pigpio/bb2-07-16-tracking-face.py	2023-03-27 22:31:10.183873701 +0900
 @@ -3,7 +3,7 @@
  import picamera.array
  import cv2
  import math
--import wiringpi2 as wiringpi
+-import wiringpi
 +import pigpio
  import pygame
  import sys
  
-@@ -26,12 +26,11 @@
+@@ -31,12 +31,11 @@
  def getServoDutyHw(id, val):
      val_min = 0
      val_max = 4095
@@ -408,7 +408,7 @@ diff -ruN raspi2-sample/bb2-07-16-tracking-face.py raspi2-sample-pigpio/bb2-07-1
      duty = int((servo_min-servo_max)*(val-val_min)/(val_max-val_min) + servo_max)
      # 一般的なサーボモーターはこちらを有効に
      #duty = int((servo_max-servo_min)*(val-val_min)/(val_max-val_min) + servo_min)
-@@ -44,16 +43,11 @@
+@@ -49,16 +48,11 @@
  PWM0 = 18
  PWM1 = 19
  
@@ -428,22 +428,22 @@ diff -ruN raspi2-sample/bb2-07-16-tracking-face.py raspi2-sample-pigpio/bb2-07-1
 +pi.hardware_PWM(PWM0, 50, getServoDutyHw(0, 2048))
 +pi.hardware_PWM(PWM1, 50, getServoDutyHw(1, 2048))
  
- prev_x = 160
- prev_y = 120
-@@ -100,10 +94,10 @@
-                 ratio_y = -3
+ minsize = int(60*(w/640))
+ maxsize = int(300*(w/640))
+@@ -107,10 +101,10 @@
+                 dy = face_y-hc  # 上下中央からのずれ
  
-                 duty0 = getServoDutyHw(0, ratio_x*dx + prev_input_x)
+                 duty0 = getServoDutyHw(0, int(ratio_x*dx) + prev_input_x)
 -                wiringpi.pwmWrite(PWM0, duty0)
 +                pi.hardware_PWM(PWM0, 50, duty0)
  
-                 duty1 = getServoDutyHw(1, ratio_y*dy + prev_input_y)
+                 duty1 = getServoDutyHw(1, int(ratio_y*dy) + prev_input_y)
 -                wiringpi.pwmWrite(PWM1, duty1)
 +                pi.hardware_PWM(PWM1, 50, duty1)
  
                  # サーボモーターに対する入力値を更新
-                 prev_input_x = ratio_x*dx + prev_input_x
-@@ -128,6 +122,7 @@
+                 prev_input_x = int(ratio_x*dx) + prev_input_x
+@@ -135,6 +129,7 @@
              for e in pygame.event.get():
                  if e.type == pygame.KEYDOWN:
                      if e.key == pygame.K_q:
