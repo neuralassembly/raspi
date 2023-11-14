@@ -171,7 +171,10 @@ def imageProcessing():
                         img_label_not_zero = img_label[img_label != 0]
                         # 最も多く現れたラベルが最も広い白領域のラベル
                         if len(img_label_not_zero) != 0:
-                            m = stats.mode(img_label_not_zero, keepdims=False)[0]
+                            try:
+                                m = stats.mode(img_label_not_zero, keepdims=False)[0]
+                            except TypeError:
+                                m = stats.mode(img_label_not_zero)[0]
                         else:
                             m = 0
                         # 最大の白領域のみを残す

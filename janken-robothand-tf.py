@@ -63,8 +63,8 @@ setPCA9685Freq(50)
 
 def guchokipa_servo(i):
     if i==0: #グーのとき
-        # 順に、親指〜小指に対応するサーボの値。
-        # 2番目の引数は常に0。範囲は143〜410程度で276がゼロ点。
+        # 順に、親指～小指に対応するサーボの値。
+        # 2番目の引数は常に0。範囲は143～410程度で276がゼロ点。
         # 以下同様。
         setPCA9685Duty(0, 0, 350)
         sleep(0.01)
@@ -242,7 +242,10 @@ def imageProcessing():
                         img_label_not_zero = img_label[img_label != 0]
                         # 最も多く現れたラベルが最も広い白領域のラベル
                         if len(img_label_not_zero) != 0:
-                            m = stats.mode(img_label_not_zero, keepdims=False)[0]
+                            try:
+                                m = stats.mode(img_label_not_zero, keepdims=False)[0]
+                            except TypeError:
+                                m = stats.mode(img_label_not_zero)[0]
                         else:
                             m = 0
                         # 最大の白領域のみを残す
