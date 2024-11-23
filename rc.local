@@ -1,0 +1,7 @@
+#!/bin/sh -e
+
+_IP=$(hostname -I) || true
+
+
+
+exit 0
