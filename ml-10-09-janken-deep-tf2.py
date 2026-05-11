@@ -5,8 +5,8 @@ import cv2
 import numpy as np
 from scipy import stats
 from sklearn.linear_model import Perceptron
-from tensorflow import keras
-from tensorflow.keras import backend as K
+import keras
+from keras import backend as K
 import sys
 from PIL import Image, ImageTk
 import threading
